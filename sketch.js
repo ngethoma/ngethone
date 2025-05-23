@@ -83,7 +83,7 @@ function setup() {
   label.parent(customPanel);
 
   let waveSymbols = ['正', '三', '矩', '鋸']; 
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 8; i++) {
     let rowDiv = createDiv().parent(customPanel);
     rowDiv.style('margin-bottom', '4px');
 
@@ -392,27 +392,27 @@ function drawWaveform() {
 function changePreset(preset) {
   currentPreset = preset;
   switch (preset) {
-    case 0: // Sine
+    case 0:
       waveforms = ['sine'];
       reverbOn = false;
       delayOn = false;
       break;
-    case 1: // Triangle
+    case 1:
       waveforms = ['triangle'];
       reverbOn = false;
       delayOn = false;
       break;
-    case 2: // Square
+    case 2:
       waveforms = ['square'];
       reverbOn = false;
       delayOn = false;
       break;
-    case 3: // Sawtooth
+    case 3:
       waveforms = ['sawtooth'];
       reverbOn = false;
       delayOn = false;
       break;
-    case 4: // Custom
+    case 4:
       waveforms = ['custom'];
       reverbOn = false;
       delayOn = false;
@@ -426,3 +426,125 @@ function changePreset(preset) {
   reverbOn = true;
   delayOn = true;
 }
+
+function mousePressed() {
+    if (!started) {
+  userStartAudio();
+  started = true;
+  playOscillator('start', baseFreq); 
+  displayPreviousFreq = baseFreq;
+  displayCurrentFreq = baseFreq;
+
+  setTimeout(() => {
+    stopOscillator('start'); 
+  }, 200);
+
+  return;
+}
+
+  let keyLayout = [
+  "1","2","3","4","5","6","7","8","9","0","-","^","\\",
+  "q","w","e","r","t","y","u","i","o","p","@","[",
+  "a","s","d","f","g","h","j","k","l",";",":","]",
+  "z","x","c","v","b","n","m",",",".","/"
+];
+  let xOffset = 140;
+  let yOffset = 300;
+  let keyWidth = 40;
+  let keyHeight = 40;
+
+  for (let i = 0; i < keyLayout.length; i++) {
+    let keyChar = keyLayout[i];
+    let keyX, keyY;
+
+    if (i < 13) keyX = xOffset + i * keyWidth, keyY = yOffset;
+    else if (i < 25) keyX = xOffset + (i - 13) * keyWidth + 20, keyY = yOffset + keyHeight;
+    else if (i < 37) keyX = xOffset + (i - 25) * keyWidth + 40, keyY = yOffset + 2 * keyHeight;
+    else keyX = xOffset + (i - 37) * keyWidth + 60, keyY = yOffset + 3 * keyHeight;
+
+    if (
+      mouseX >= keyX && mouseX <= keyX + keyWidth &&
+      mouseY >= keyY && mouseY <= keyY + keyHeight
+    ) {
+      let ratio = keyMap[keyChar];
+      if (ratio && !oscs[keyChar]) {
+        let newFreq = displayCurrentFreq * (ratio[0] / ratio[1]);
+        playOscillator(keyChar, newFreq);
+        displayPreviousFreq = displayCurrentFreq;
+        displayCurrentFreq = newFreq;
+        activeKeys[keyChar] = true;
+      }
+    }
+  }
+}
+
+function touchStarted() {
+  if (!started) {
+  userStartAudio();
+  started = true;
+  playOscillator('start', baseFreq); 
+  displayPreviousFreq = baseFreq;
+  displayCurrentFreq = baseFreq;
+
+  setTimeout(() => {
+    stopOscillator('start');
+  }, 200); 
+
+  return;
+}
+
+
+
+  mousePressed(); 
+}
+
+
+function mouseReleased() {
+  stopTouchedKey(mouseX, mouseY);
+}
+
+function touchEnded() {
+  stopTouchedKey(mouseX, mouseY); 
+}
+
+function stopTouchedKey(x, y) {
+  let keyLayout = [
+    "1","2","3","4","5","6","7","8","9","0","-","^","\\",
+    "q","w","e","r","t","y","u","i","o","p","@","[",
+    "a","s","d","f","g","h","j","k","l",";",":","]",
+    "z","x","c","v","b","n","m",",",".","/"
+  ];
+  let xOffset = 140;
+  let yOffset = 300;
+  let keyWidth = 40;
+  let keyHeight = 40;
+
+  for (let i = 0; i < keyLayout.length; i++) {
+    let keyChar = keyLayout[i];
+    let keyX, keyY;
+
+    if (i < 13) {
+      keyX = xOffset + i * keyWidth;
+      keyY = yOffset;
+    } else if (i < 25) {
+      keyX = xOffset + (i - 13) * keyWidth + 20;
+      keyY = yOffset + keyHeight;
+    } else if (i < 37) {
+      keyX = xOffset + (i - 25) * keyWidth + 40;
+      keyY = yOffset + 2 * keyHeight;
+    } else {
+      keyX = xOffset + (i - 37) * keyWidth + 60;
+      keyY = yOffset + 3 * keyHeight;
+    }
+
+    if (
+      x >= keyX && x <= keyX + keyWidth &&
+      y >= keyY && y <= keyY + keyHeight
+    ) {
+      if (oscs[keyChar]) {
+        stopOscillator(keyChar);
+      }
+    }
+  }
+}
+
