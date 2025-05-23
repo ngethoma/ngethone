@@ -52,7 +52,11 @@ let baseFreqInput;
 let baseFreqLabel;
 
 function setup() {
-  createCanvas(800, 500);
+  let wrapper = createDiv();
+  wrapper.id('wrapper');
+
+  let canvas = createCanvas(800, 500);
+  canvas.parent(wrapper);
 
   reverb = new p5.Reverb();
   delay = new p5.Delay();
@@ -60,11 +64,13 @@ function setup() {
 
   for (let i = 0; i < presetNames.length; i++) {
     let btn = createButton(presetNames[i]);
+    btn.parent(wrapper); 
     btn.position(20, 20 + i * 30);
     btn.mousePressed(() => changePreset(i));
 
     if (i === 4) {
       let toggleCustomBtn = createButton('Custom設定');
+      toggleCustomBtn.parent(wrapper); 
       toggleCustomBtn.position(20, 20 + i * 30 + 30);
       toggleCustomBtn.mousePressed(() => {
         customPanelVisible = !customPanelVisible;
@@ -74,6 +80,7 @@ function setup() {
   }
 
   customPanel = createDiv(); 
+  customPanel.parent(wrapper); 
   customPanel.position(20, 200);
   customPanel.style('padding', '5px');
   customPanel.style('border', '1px solid #999');
@@ -113,11 +120,15 @@ function setup() {
     waveAmpLabels.push(valSpan);
   }
 
-  volumeSlider = createSlider(0, 1, 0.5, 0.01);
-  volumeSlider.position(650, 460);  
-  let volLabel = createSpan('Vol');
-  volLabel.position(620, 460);
-  volLabel.style('color', 'rgb(0, 102, 204)');
+volumeSlider = createSlider(0, 1, 0.5, 0.01);
+volumeSlider.parent(wrapper);  
+volumeSlider.position(width - 150, height - 40); 
+
+volLabel = createSpan('Vol');
+volLabel.parent(wrapper); 
+volLabel.position(width - 180, height - 40);
+volLabel.style('color', 'rgb(0, 102, 204)');
+
 
   keyMap = {
     '1': [1, 1], '2': [2, 1], '3': [3, 2], '4': [4, 3], '5': [5, 4],
@@ -138,12 +149,15 @@ function setup() {
   arrowY = height - arrowH - 10; 
 
   baseFreqLabel = createSpan("BaseFreq: ");
-  baseFreqLabel.position(660, 45);
-  baseFreqLabel.style('color', 'rgb(0, 102, 204)');
+baseFreqLabel.parent(wrapper); 
+baseFreqLabel.position(660, 45);  
+baseFreqLabel.style('color', 'rgb(0, 102, 204)');
 
-  baseFreqInput = createInput("440");  
-  baseFreqInput.position(745, 45);
-  baseFreqInput.size(30);
+baseFreqInput = createInput("440");  
+baseFreqInput.parent(wrapper); 
+baseFreqInput.position(745, 45); 
+baseFreqInput.size(30);
+
   baseFreqInput.input(() => {
     let val = parseFloat(baseFreqInput.value());
     if (!isNaN(val)) {
@@ -193,8 +207,8 @@ function draw() {
 
 function mousePressed() {
   if (
-    mouseX >= arrowX && mouseX <= arrowX + arrowW &&
-    mouseY >= arrowY && mouseY <= arrowY + arrowH
+    mouseX +5 >= arrowX && mouseX <= arrowX + arrowW +5 &&
+    mouseY +5 >= arrowY && mouseY <= arrowY + arrowH +5
   ) {
     window.open('http://ngethoma.com/notion', '_blank');
   }
@@ -547,4 +561,3 @@ function stopTouchedKey(x, y) {
     }
   }
 }
-
