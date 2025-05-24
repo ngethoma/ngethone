@@ -23,6 +23,8 @@ let customWaves = [
   { shape: 'sawtooth', amp: 0.25 }
 ];
 
+
+
 function symbolToShape(symbol) {
   switch (symbol) {
     case '正': return 'sine';
@@ -39,7 +41,8 @@ let waveAmpLabels = [];
 
 let waveforms = ['sine'];
 let currentPreset = 0;
-let presetNames = ['Sine', 'Triangle', 'Square', 'Sawtooth', 'Custom'];
+let presetNames = ['Sine', 'Triangle', 'Square', 'Sawtooth', 'Piano', 'Custom'];
+
 
 let customPanel;         
 let customPanelVisible = false;  
@@ -50,6 +53,25 @@ let arrowX, arrowY, arrowW, arrowH;
 
 let baseFreqInput;
 let baseFreqLabel;
+
+let pianoSamples = {}; // 'C4' → p5.SoundFile
+let notesToLoad = [];
+
+for (let octave = 1; octave <= 7; octave++) {
+  ['C', 'E', 'G', 'A'].forEach(note => {
+    notesToLoad.push(note + octave); // e.g. 'C4', 'E5', ...
+  });
+}
+
+
+function preload() {
+  for (let name of notesToLoad) {
+    pianoSamples[name] = loadSound(`https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/${name}.mp3`);
+  }
+}
+
+
+
 
 function setup() {
   let wrapper = createDiv();
@@ -68,7 +90,7 @@ function setup() {
     btn.position(20, 20 + i * 30);
     btn.mousePressed(() => changePreset(i));
 
-    if (i === 4) {
+    if (i === 5) {
       let toggleCustomBtn = createButton('Custom設定');
       toggleCustomBtn.parent(wrapper); 
       toggleCustomBtn.position(20, 20 + i * 30 + 30);
@@ -81,7 +103,7 @@ function setup() {
 
   customPanel = createDiv(); 
   customPanel.parent(wrapper); 
-  customPanel.position(20, 200);
+  customPanel.position(20, 20);
   customPanel.style('padding', '5px');
   customPanel.style('border', '1px solid #999');
   customPanel.style('display', 'none');  
@@ -239,22 +261,21 @@ function keyPressed() {
   }
 }
 
-function keyReleased() {
-  if (oscs[key]) {
-    if (!keyIsDown(SHIFT)) {
-      stopOscillator(key);
-    } else {
-      activeKeys[key] = false;
-    }
+function keyReleased(e) {
+  let releasedKey = e.key;
+  if (oscs[releasedKey]) {
+    stopOscillator(releasedKey);
   }
 }
 
+
+
 function playOscillator(key, freq) {
-  if (currentPreset === 4) {
+  if (currentPreset === 5) { // Custom
     let waveOscs = [];
     for (let i = 0; i < customWaves.length; i++) {
       let cw = customWaves[i];
-      let partialIndex = i + 1;  
+      let partialIndex = i + 1;
       let partialFreq = freq * partialIndex;
 
       let osc = new p5.Oscillator(cw.shape);
@@ -274,24 +295,65 @@ function playOscillator(key, freq) {
       waveOscs.push(osc);
     }
     oscs[key] = waveOscs;
-  } else {
+
+} else if (currentPreset === 4) { // Piano
+  let midi = freqToMidi(freq);
+  let nameList = Object.keys(pianoSamples);
+
+  let best = nameList.reduce((a, b) =>
+    Math.abs(noteNameToFreq(b) - freq) < Math.abs(noteNameToFreq(a) - freq) ? b : a
+  );
+
+  let sample = pianoSamples[best];
+  if (sample && sample.isLoaded()) {
+    let refFreq = noteNameToFreq(best);
+    let rate = freq / refFreq;
+
+    let sound = sample;
+    let baseVol = volumeSlider.value();
+
+    sound.rate(rate);
+
+    // ⬇ p5.SoundFileには setVolume() を使う（amp()は未保証）
+    sound.setVolume(baseVol * 5); // ブースト調整（好みで 1.5 くらいまでOK）
+
+    if (reverbOn) reverb.process(sound, 5, 3);
+    if (delayOn) delay.process(sound, 0.2, 0.3, 2300);
+
+    sound.play();
+
+    // ⏱ 疑似的なリリースフェーズを実現（setVolumeでのフェード）
+    sound.setVolume(baseVol * 3, 0);       // 即スタート
+    sound.setVolume(0, 2, 0.5);             // 0.3秒後に 1.5秒かけてフェードアウト
+    sound.stop(2);                            // 2秒後に停止（ちょうどいい）
+
+    oscs[key] = sound;
+
+    displayPreviousFreq = displayCurrentFreq;
+    displayCurrentFreq = freq;
+  }
+}
+
+ else { // 通常波形プリセット
     let waveName = waveforms[0];
     let osc = new p5.Oscillator(waveName);
     osc.freq(freq);
     osc.start();
 
     if (fadeOn) {
-      osc.amp(0, 0.05);  
+      osc.amp(0, 0.05);
       osc.amp(0.3, 0.5);
     } else {
       osc.amp(0.3);
     }
-    if (reverbOn) reverb.process(osc, 3, 2);  
-    if (delayOn)  delay.process(osc, 0.2, 0.3, 2300);  
+
+    if (reverbOn) reverb.process(osc, 3, 2);
+    if (delayOn)  delay.process(osc, 0.2, 0.3, 2300);
 
     oscs[key] = osc;
   }
 }
+
 
 function stopOscillator(key) {
   let oscObj = oscs[key];
@@ -305,14 +367,28 @@ function stopOscillator(key) {
       o.stop(1);
     }
   } else {
-    if (fadeOn) {
-      oscObj.amp(0, 0.5);
+    if (currentPreset === 4) { // Piano
+      if (oscObj && typeof oscObj.setVolume === 'function') {
+        let currentVol = volumeSlider.value() * 5;
+        oscObj.setVolume(currentVol, 0);
+        oscObj.setVolume(0, 0.3);
+        oscObj.stop(0.3);
+      } else {
+        oscObj.stop();
+      }
+    } else {
+      if (fadeOn) {
+        oscObj.amp(0, 0.5);
+      }
+      oscObj.stop(1);
     }
-    oscObj.stop(1);
   }
+
   delete oscs[key];
   delete activeKeys[key];
 }
+
+
 
 function drawKeyboard() {
   let keyLayout = [
@@ -408,38 +484,30 @@ function changePreset(preset) {
   switch (preset) {
     case 0:
       waveforms = ['sine'];
-      reverbOn = false;
-      delayOn = false;
       break;
     case 1:
       waveforms = ['triangle'];
-      reverbOn = false;
-      delayOn = false;
       break;
     case 2:
       waveforms = ['square'];
-      reverbOn = false;
-      delayOn = false;
       break;
     case 3:
       waveforms = ['sawtooth'];
-      reverbOn = false;
-      delayOn = false;
       break;
-    case 4:
+    case 4: // Piano
+      waveforms = ['piano'];
+      break;
+    case 5: // Custom
       waveforms = ['custom'];
-      reverbOn = false;
-      delayOn = false;
       break;
     default:
       waveforms = ['sine'];
-      reverbOn = false;
-      delayOn = false;
       break;
   }
   reverbOn = true;
   delayOn = true;
 }
+
 
 function mousePressed() {
     if (!started) {
@@ -560,4 +628,20 @@ function stopTouchedKey(x, y) {
       }
     }
   }
+}
+
+function freqToMidi(freq) {
+  return 69 + 12 * Math.log2(freq / 440);
+}
+
+function noteNameToFreq(note) {
+  const name = note.slice(0, -1);
+  const octave = parseInt(note.slice(-1));
+  const noteMap = {
+    'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5,
+    'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11
+  };
+  const semitone = noteMap[name];
+  const midi = 12 * (octave + 1) + semitone;
+  return 440 * Math.pow(2, (midi - 69) / 12);
 }
