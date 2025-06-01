@@ -71,8 +71,6 @@ function preload() {
 }
 
 
-
-
 function setup() {
   let wrapper = createDiv();
   wrapper.id('wrapper');
@@ -91,7 +89,7 @@ function setup() {
     btn.mousePressed(() => changePreset(i));
 
     if (i === 5) {
-      let toggleCustomBtn = createButton('Custom設定');
+      let toggleCustomBtn = createButton('Custom Settings');
       toggleCustomBtn.parent(wrapper); 
       toggleCustomBtn.position(20, 20 + i * 30 + 30);
       toggleCustomBtn.mousePressed(() => {
@@ -108,7 +106,7 @@ function setup() {
   customPanel.style('border', '1px solid #999');
   customPanel.style('display', 'none');  
 
-  let label = createDiv('＜Custom 設定＞');
+  let label = createDiv('＜Custom Settings＞');
   label.parent(customPanel);
 
   let waveSymbols = ['正', '三', '矩', '鋸']; 
@@ -142,17 +140,16 @@ function setup() {
     waveAmpLabels.push(valSpan);
   }
 
-volumeSlider = createSlider(0, 1, 0.5, 0.01);
-volumeSlider.parent(wrapper);  
-volumeSlider.position(width - 150, height - 40); 
+  volumeSlider = createSlider(0, 1, 0.5, 0.01);
+  volumeSlider.parent(wrapper);  
+  volumeSlider.position(width - 150, height - 40); 
 
-volLabel = createSpan('Vol');
-volLabel.parent(wrapper); 
-volLabel.position(width - 180, height - 40);
-volLabel.style('color', 'rgb(0, 102, 204)');
+  volLabel = createSpan('Vol');
+  volLabel.parent(wrapper); 
+  volLabel.position(width - 180, height - 40);
+  volLabel.style('color', 'rgb(0, 102, 204)');
 
-
-  keyMap = {
+  const defaultKeyMap = {
     '1': [1, 1], '2': [2, 1], '3': [3, 2], '4': [4, 3], '5': [5, 4],
     '6': [5, 3], '7': [6, 5], '8': [7, 6], '9': [7, 5], '0': [7, 4],
     '-': [8, 7], '^': [8, 5], '\\': [9, 8], 'q': [9, 7], 'w': [9, 5],
@@ -164,6 +161,7 @@ volLabel.style('color', 'rgb(0, 102, 204)');
     'v': [7, 13], 'b': [8, 9], 'n': [8, 11], 'm': [8, 13], ',': [9, 10],
     '.': [9, 11], '/': [9, 13]
   };
+  keyMap = Object.assign({}, defaultKeyMap);
 
   arrowW = 16;  
   arrowH = 16;  
@@ -171,14 +169,14 @@ volLabel.style('color', 'rgb(0, 102, 204)');
   arrowY = height - arrowH - 10; 
 
   baseFreqLabel = createSpan("BaseFreq: ");
-baseFreqLabel.parent(wrapper); 
-baseFreqLabel.position(660, 45);  
-baseFreqLabel.style('color', 'rgb(0, 102, 204)');
+  baseFreqLabel.parent(wrapper); 
+  baseFreqLabel.position(660, 45);  
+  baseFreqLabel.style('color', 'rgb(0, 102, 204)');
 
-baseFreqInput = createInput("440");  
-baseFreqInput.parent(wrapper); 
-baseFreqInput.position(745, 45); 
-baseFreqInput.size(30);
+  baseFreqInput = createInput("440");  
+  baseFreqInput.parent(wrapper); 
+  baseFreqInput.position(745, 45); 
+  baseFreqInput.size(30);
 
   baseFreqInput.input(() => {
     let val = parseFloat(baseFreqInput.value());
@@ -188,7 +186,53 @@ baseFreqInput.size(30);
       displayCurrentFreq = baseFreq;
     }
   });
+  
+  let keyMapPanelVisible = false;
+
+let toggleKeyMapBtn = createButton('KeyMap');
+toggleKeyMapBtn.parent(wrapper);
+toggleKeyMapBtn.position(720, 430);
+toggleKeyMapBtn.mousePressed(() => {
+  keyMapPanelVisible = !keyMapPanelVisible;
+  keyMapPanel.style('display', keyMapPanelVisible ? 'block' : 'none');
+});
+
+
+  let keyMapPanel = createDiv(); 
+keyMapPanel.parent(wrapper); 
+keyMapPanel.position(500, 400); 
+keyMapPanel.style('padding', '5px');
+keyMapPanel.style('border', '1px solid #999');
+keyMapPanel.style('background', '#eef');
+keyMapPanel.style('display', 'none'); 
+
+
+  createSpan("Key:").parent(keyMapPanel);
+  let keyInput = createInput().parent(keyMapPanel);
+  keyInput.size(30);
+
+  createSpan(" Ratio:").parent(keyMapPanel);
+  let numInput = createInput().parent(keyMapPanel);
+  numInput.size(30);
+
+  createSpan(" :").parent(keyMapPanel);
+  let denInput = createInput().parent(keyMapPanel);
+  denInput.size(30);
+
+  let updateBtn = createButton("Update").parent(keyMapPanel);
+  updateBtn.mousePressed(() => {
+    let key = keyInput.value();
+    let num = parseInt(numInput.value());
+    let den = parseInt(denInput.value());
+    if (key && !isNaN(num) && !isNaN(den)) {
+      keyMap[key] = [num, den];
+    }
+  });
 }
+
+
+
+
 
 function draw() {
   for (let y = 0; y < height; y++) {
@@ -254,8 +298,8 @@ function keyPressed() {
       let newFreq = displayCurrentFreq * (ratio[0] / ratio[1]);
       playOscillator(key, newFreq);
 
-      displayPreviousFreq = displayCurrentFreq;
-      displayCurrentFreq = newFreq;
+      //displayPreviousFreq = displayCurrentFreq;
+      //displayCurrentFreq = newFreq;
       activeKeys[key] = true;
     }
   }
@@ -271,6 +315,7 @@ function keyReleased(e) {
 
 
 function playOscillator(key, freq) {
+    updateFreqDisplay(freq);
   if (currentPreset === 5) {
     let waveOscs = [];
     for (let i = 0; i < customWaves.length; i++) {
@@ -304,7 +349,7 @@ function playOscillator(key, freq) {
     Math.abs(noteNameToFreq(b) - freq) < Math.abs(noteNameToFreq(a) - freq) ? b : a
   );
 
-  let sample = pianoSamples[best];
+    let sample = pianoSamples[best];
   if (sample && sample.isLoaded()) {
     let refFreq = noteNameToFreq(best);
     let rate = freq / refFreq;
@@ -313,22 +358,20 @@ function playOscillator(key, freq) {
     let baseVol = volumeSlider.value();
 
     sound.rate(rate);
-    sound.setVolume(baseVol * 5); 
+    sound.setVolume(baseVol * 5);
 
     if (reverbOn) reverb.process(sound, 5, 3);
     if (delayOn) delay.process(sound, 0.2, 0.3, 2300);
 
     sound.play();
-
     sound.setVolume(baseVol * 3, 0);
     sound.setVolume(0, 2, 0.5);
     sound.stop(2);
 
     oscs[key] = sound;
 
-    displayPreviousFreq = displayCurrentFreq;
-    displayCurrentFreq = freq;
-  }
+
+  } 
 }
 
  else {
@@ -349,6 +392,11 @@ function playOscillator(key, freq) {
 
     oscs[key] = osc;
   }
+}
+
+function updateFreqDisplay(freq) {
+  displayPreviousFreq = displayCurrentFreq;
+  displayCurrentFreq = freq;
 }
 
 
@@ -429,13 +477,12 @@ function drawKeyboard() {
     textAlign(CENTER, CENTER);
 
     let ratio = keyMap[keyChar];
-    if (ratio) {
-      text(`${keyChar}\n${ratio[0]}:${ratio[1]}`, 
-           keyX + keyWidth / 2, 
-           keyY + keyHeight / 2);
-    } else {
-      text(keyChar, keyX + keyWidth / 2, keyY + keyHeight / 2);
-    }
+if (ratio) {
+  text(`${keyChar}\n${ratio[0]}:${ratio[1]}`, keyX + keyWidth / 2, keyY + keyHeight / 2);
+} else {
+  text(keyChar, keyX + keyWidth / 2, keyY + keyHeight / 2);
+}
+
   }
 }
 
@@ -549,8 +596,8 @@ function mousePressed() {
       if (ratio && !oscs[keyChar]) {
         let newFreq = displayCurrentFreq * (ratio[0] / ratio[1]);
         playOscillator(keyChar, newFreq);
-        displayPreviousFreq = displayCurrentFreq;
-        displayCurrentFreq = newFreq;
+        //displayPreviousFreq = displayCurrentFreq;
+        //displayCurrentFreq = newFreq;
         activeKeys[keyChar] = true;
       }
     }
@@ -642,4 +689,3 @@ function noteNameToFreq(note) {
   const midi = 12 * (octave + 1) + semitone;
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
-
