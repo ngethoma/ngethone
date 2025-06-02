@@ -57,6 +57,9 @@ let baseFreqLabel;
 let pianoSamples = {};
 let notesToLoad = [];
 
+let currentPressedKey = null;
+
+
 for (let octave = 1; octave <= 7; octave++) {
   ['C', 'E', 'G', 'A'].forEach(note => {
     notesToLoad.push(note + octave);
@@ -191,7 +194,7 @@ function setup() {
 
 let toggleKeyMapBtn = createButton('KeyMap');
 toggleKeyMapBtn.parent(wrapper);
-toggleKeyMapBtn.position(720, 430);
+toggleKeyMapBtn.position(720, 400);
 toggleKeyMapBtn.mousePressed(() => {
   keyMapPanelVisible = !keyMapPanelVisible;
   keyMapPanel.style('display', keyMapPanelVisible ? 'block' : 'none');
@@ -200,26 +203,29 @@ toggleKeyMapBtn.mousePressed(() => {
 
   let keyMapPanel = createDiv(); 
 keyMapPanel.parent(wrapper); 
-keyMapPanel.position(500, 400); 
+keyMapPanel.position(500, 360); 
 keyMapPanel.style('padding', '5px');
 keyMapPanel.style('border', '1px solid #999');
 keyMapPanel.style('background', '#eef');
 keyMapPanel.style('display', 'none'); 
 
 
-  createSpan("Key:").parent(keyMapPanel);
+  createSpan("Key: ").parent(keyMapPanel);
   let keyInput = createInput().parent(keyMapPanel);
   keyInput.size(30);
 
-  createSpan(" Ratio:").parent(keyMapPanel);
+  createSpan(" Ratio: ").parent(keyMapPanel);
   let numInput = createInput().parent(keyMapPanel);
   numInput.size(30);
 
-  createSpan(" :").parent(keyMapPanel);
+  createSpan(" : ").style('margin-right', '0px').parent(keyMapPanel);
   let denInput = createInput().parent(keyMapPanel);
   denInput.size(30);
 
+
+  
   let updateBtn = createButton("Update").parent(keyMapPanel);
+  updateBtn.style('margin-left', '5px');
   updateBtn.mousePressed(() => {
     let key = keyInput.value();
     let num = parseInt(numInput.value());
@@ -228,6 +234,9 @@ keyMapPanel.style('display', 'none');
       keyMap[key] = [num, den];
     }
   });
+  
+  setupSequencePanel(wrapper);
+  
 }
 
 
@@ -269,6 +278,13 @@ function draw() {
   textSize(16);
   textAlign(LEFT, TOP);
   text("◀", arrowX, arrowY);
+  
+  if (!sequencePaused && (sequenceActive || isRecording)) {
+  sequenceCurrentTime = millis() - sequenceStartTime;
+}
+sequenceTimeInput.value((sequenceCurrentTime / 1000).toFixed(2));
+
+  updateSequence();
 }
 
 function mousePressed() {
@@ -292,25 +308,42 @@ function keyPressed() {
   if (!started && key === ' ') {
     started = true;
     playOscillator(' ', baseFreq);
-  } else if (started) {
-    let ratio = keyMap[key];
-    if (ratio && !oscs[key]) {
-      let newFreq = displayCurrentFreq * (ratio[0] / ratio[1]);
-      playOscillator(key, newFreq);
+    return;
+  }
 
-      //displayPreviousFreq = displayCurrentFreq;
-      //displayCurrentFreq = newFreq;
-      activeKeys[key] = true;
+  if (!started) return;
+
+  let ratio = keyMap[key];
+  if (ratio && !oscs[key]) {
+    let newFreq = displayCurrentFreq * (ratio[0] / ratio[1]);
+    playOscillator(key, newFreq);
+    activeKeys[key] = true;
+
+    if (isRecording) {
+      recordedEvents.push({
+        time: sequenceCurrentTime,
+        ratio: ratio,
+        length: 300  
+      });
     }
   }
 }
+
 
 function keyReleased(e) {
   let releasedKey = e.key;
   if (oscs[releasedKey]) {
     stopOscillator(releasedKey);
   }
+
+  if (isRecording && recordedEvents.length > 0) {
+    let last = recordedEvents[recordedEvents.length - 1];
+    if (typeof last.time === 'number' && last.length === 300) {
+      last.length = sequenceCurrentTime - last.time;
+    }
+  }
 }
+
 
 
 
@@ -599,9 +632,20 @@ function mousePressed() {
         //displayPreviousFreq = displayCurrentFreq;
         //displayCurrentFreq = newFreq;
         activeKeys[keyChar] = true;
+        
+        if (isRecording && ratio) {
+  recordedEvents.push({
+    time: sequenceCurrentTime,
+    ratio: ratio,
+    length: 300 
+  });
+}
+
+
       }
     }
   }
+  
 }
 
 function touchStarted() {
@@ -627,6 +671,18 @@ function touchStarted() {
 
 function mouseReleased() {
   stopTouchedKey(mouseX, mouseY);
+  if (isRecording) {
+  let now = millis();
+  let timeSinceStart = now - sequenceStartTime;
+
+  let last = recordedEvents[recordedEvents.length - 1];
+  if (last && !last.released && typeof last.time === 'number') {
+    last.length = timeSinceStart - last.time;
+    last.released = true;
+  }
+}
+
+
 }
 
 function touchEnded() {
@@ -674,7 +730,7 @@ function stopTouchedKey(x, y) {
   }
 }
 
-function freqToMidi(freq) {
+function freqToMidii(freq) {
   return 69 + 12 * Math.log2(freq / 440);
 }
 
@@ -689,3 +745,261 @@ function noteNameToFreq(note) {
   const midi = 12 * (octave + 1) + semitone;
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
+
+
+let sequencePanel;
+let sequencePanelVisible = false;
+let sequenceInput;
+let sequencePlayPauseBtn, sequenceStopBtn, sequenceResetBtn;
+let sequenceTimeInput, bpmInput;
+let sequenceCurrentTime = 0;
+let sequenceStartTime = 0;
+let sequenceActive = false;
+let sequencePaused = false;
+let sequenceEvents = [];
+let sequencePauseOffset = 0;
+let bpm = 120;
+let scheduledFreqChange = null;
+
+let isRecording = false;
+//let recordStartTime = 0;
+let recordedEvents = [];
+
+
+function setupSequencePanel(wrapper) {
+  let toggleSeqBtn = createButton('Sequence');
+  toggleSeqBtn.parent(wrapper);
+  toggleSeqBtn.position(709, 430);
+  toggleSeqBtn.mousePressed(() => {
+    sequencePanelVisible = !sequencePanelVisible;
+    sequencePanel.style('display', sequencePanelVisible ? 'block' : 'none');
+  });
+
+  sequencePanel = createDiv();
+  sequencePanel.parent(wrapper);
+  sequencePanel.position(0, height + 10);
+  sequencePanel.size(width, 180);
+  sequencePanel.style('padding', '10px');
+  sequencePanel.style('border', '1px solid #999');
+  sequencePanel.style('background', '#fff');
+  sequencePanel.style('display', 'none');
+
+  let controlRow = createDiv();
+  controlRow.parent(sequencePanel);
+  controlRow.style('display', 'flex');
+  controlRow.style('align-items', 'center');
+  controlRow.style('justify-content', 'center');
+  controlRow.style('gap', '10px');
+  controlRow.style('margin-bottom', '10px');
+
+  sequenceResetBtn = createButton('⏮');
+  sequenceResetBtn.parent(controlRow);
+  sequenceResetBtn.mousePressed(() => {
+  sequenceCurrentTime = 0;
+  sequenceStartTime = millis();
+  sequenceTimeInput.value('0');
+  sequenceActive = false;
+  sequenceEvents.forEach(evt => evt.played = false);
+});
+
+
+
+  sequencePlayPauseBtn = createButton('⏵');
+  sequencePlayPauseBtn.parent(controlRow);
+  sequencePlayPauseBtn.mousePressed(() => {
+    if (!sequenceActive) {
+      startSequence();
+      sequencePlayPauseBtn.html('⏸');
+    } else {
+      if (sequencePaused) {
+        resumeSequence();
+        sequencePlayPauseBtn.html('⏸');
+      } else {
+        pauseSequence();
+        sequencePlayPauseBtn.html('⏵');
+      }
+    }
+  });
+
+  //sequenceStopBtn = createButton('⏹');
+  //sequenceStopBtn.parent(controlRow);
+  //sequenceStopBtn.mousePressed(() => {
+    //stopSequence();
+    //sequencePlayPauseBtn.html('⏵');
+  //});
+  
+  let recordBtn = createButton('●');
+recordBtn.parent(controlRow);
+  
+  
+recordBtn.mousePressed(() => {
+  if (!isRecording) {
+    updateSequence();
+    isRecording = true;
+    recordedEvents = [];
+    sequenceActive = true;
+sequencePaused = false;
+sequenceStartTime = millis() - sequenceCurrentTime;
+    sequenceCurrentTime = millis() - sequenceStartTime;
+sequenceTimeInput.value((sequenceCurrentTime / 1000).toFixed(2));
+
+    recordBtn.html('⏹');
+  } else {
+    isRecording = false;
+    sequenceActive = false; 
+    recordBtn.html('●');
+
+    let existing = sequenceInput.value().trim();
+    let lines = recordedEvents.map(evt => {
+      let timeStr = `${Math.round(evt.time)}ms`;
+      let ratioStr = `${evt.ratio[0]}:${evt.ratio[1]}`;
+      let lenStr = `${Math.round(evt.length)}ms`;
+      return `${timeStr}, ${ratioStr}, ${lenStr}`;
+    });
+
+    const joined = (existing ? existing + '\n' : '') + lines.join('\n');
+    sequenceInput.value(joined);
+  }
+});
+
+
+
+
+
+  sequenceTimeInput = createInput('0');
+  sequenceTimeInput.parent(controlRow);
+  sequenceTimeInput.size(80);
+  sequenceTimeInput.input(() => {
+    let sec = parseFloat(sequenceTimeInput.value());
+    if (!isNaN(sec)) {
+      sequenceCurrentTime = sec * 1000;
+      sequenceStartTime = millis() - sequenceCurrentTime;
+      sequenceEvents.forEach(evt => evt.played = false);
+    }
+  });
+
+  let timeLabel = createSpan('秒');
+  timeLabel.parent(controlRow);
+
+  bpmInput = createInput(bpm.toString());
+  bpmInput.parent(controlRow);
+  bpmInput.size(60);
+  bpmInput.input(() => {
+    let val = parseInt(bpmInput.value());
+    if (!isNaN(val)) bpm = val;
+  });
+  
+  
+  let bpmLabel = createSpan('BPM');
+bpmLabel.parent(controlRow);
+
+  let label = createDiv('Sequence Input:');
+  label.parent(sequencePanel);
+  label.style('margin-top', '-24px'); 
+
+  sequenceInput = createElement('textarea');
+  sequenceInput.parent(sequencePanel);
+  sequenceInput.size(width - 20, 120);
+  sequenceInput.value("100ms, prefreq=440\n800ms, 3:4, 1000ms\n1700ms, 6:5, 2500ms\n5拍, 5:4, 2500ms");
+  sequenceInput.style('margin-top', '0px');
+  
+
+
+}
+
+function startSequence() {
+  sequenceEvents = [];
+  let lines = sequenceInput.value().split('\n');
+  for (let line of lines) {
+    let parts = line.split(',').map(p => p.trim());
+    if (parts.length >= 2) {
+      let timeStr = parts[0];
+      let time;
+      if (timeStr.includes('拍')) {
+        time = parseFloat(timeStr) * (60000 / bpm);
+      } else if (timeStr.includes('ms')) {
+        time = parseFloat(timeStr);
+      } else if (timeStr.includes('s')) {
+        time = parseFloat(timeStr) * 1000;
+      } else {
+        time = parseInt(timeStr);
+      }
+
+      let length = 300;
+      if (parts.length >= 3) {
+        let lenStr = parts[2];
+        if (lenStr.includes('拍')) {
+          length = parseFloat(lenStr) * (60000 / bpm);
+        } else if (lenStr.includes('ms')) {
+          length = parseFloat(lenStr);
+        } else if (lenStr.includes('s')) {
+          length = parseFloat(lenStr) * 1000;
+        } else {
+          length = parseInt(lenStr);
+        }
+      }
+
+      if (parts[1].startsWith('prefreq=')) {
+        let freqVal = parseFloat(parts[1].split('=')[1]);
+        if (!isNaN(time) && !isNaN(freqVal)) {
+          sequenceEvents.push({ time, type: 'prefreq', freq: freqVal, played: false });
+        }
+      } else {
+        let ratio = parts[1].split(':').map(Number);
+        if (!isNaN(time) && ratio.length === 2 && !ratio.includes(NaN)) {
+          sequenceEvents.push({ time, type: 'note', ratio, length, played: false });
+        }
+      }
+    }
+  }
+
+  if (!isRecording) {
+    sequenceStartTime = millis() - sequenceCurrentTime;
+    sequencePauseOffset = 0;
+  }
+
+  sequenceActive = true;
+  sequencePaused = false;
+}
+
+
+function pauseSequence() {
+  sequencePaused = true;
+  sequencePauseOffset = millis() - sequenceStartTime;
+}
+
+function resumeSequence() {
+  sequencePaused = false;
+  sequenceStartTime = millis() - sequencePauseOffset;
+}
+
+function stopSequence() {
+  sequenceActive = false;
+  sequencePaused = false;
+  sequenceEvents = [];
+  sequenceTimeInput.value('0');
+}
+
+function updateSequence() {
+  if (!sequenceActive && !isRecording) return;
+  if (sequencePaused) return;
+
+  let now = millis();
+  //sequenceCurrentTime = now - sequenceStartTime;
+  //sequenceTimeInput.value((sequenceCurrentTime / 1000).toFixed(2));
+
+  for (let evt of sequenceEvents) {
+    if (!evt.played && sequenceCurrentTime >= evt.time) {
+      if (evt.type === 'prefreq') {
+        displayCurrentFreq = evt.freq;
+      } else if (evt.type === 'note') {
+        let freq = displayCurrentFreq * (evt.ratio[0] / evt.ratio[1]);
+        let id = 'seq-' + evt.time + '-' + Math.random();
+        playOscillator(id, freq);
+        setTimeout(() => stopOscillator(id), evt.length);
+      }
+      evt.played = true;
+    }
+  }
+}
+
