@@ -778,7 +778,7 @@ function setupSequencePanel(wrapper) {
   sequencePanel = createDiv();
   sequencePanel.parent(wrapper);
   sequencePanel.position(0, height + 10);
-  sequencePanel.size(width, 180);
+  sequencePanel.size(780, 180);
   sequencePanel.style('padding', '10px');
   sequencePanel.style('border', '1px solid #999');
   sequencePanel.style('background', '#fff');
@@ -899,7 +899,7 @@ bpmLabel.parent(controlRow);
 
   sequenceInput = createElement('textarea');
   sequenceInput.parent(sequencePanel);
-  sequenceInput.size(width - 20, 120);
+  sequenceInput.size(800 - 26, 120);
   sequenceInput.value("100ms, prefreq=440\n800ms, 3:4, 1000ms\n1700ms, 6:5, 2500ms\n5拍, 5:4, 2500ms");
   sequenceInput.style('margin-top', '0px');
   
