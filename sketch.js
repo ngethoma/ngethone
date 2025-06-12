@@ -940,7 +940,7 @@ bpmLabel.parent(controlRow);
   sequenceInput.style('width', '100%');
 sequenceInput.style('box-sizing', 'border-box');
 sequenceInput.style('height', '120px');
-  sequenceInput.value("100ms, prefreq=440\n800ms, 3:4, 1000ms\n1700ms, 6:5, 2500ms\n5拍, 5:4, 2500ms");
+  sequenceInput.value("100ms, prefreq=490\n800ms, 3:4, 3500ms\n1700ms, 11:7, 3500ms\n5拍, 10:9, 3000ms\n3400ms, 3:2, 2500ms");
   sequenceInput.style('margin-top', '0px');
   
 
