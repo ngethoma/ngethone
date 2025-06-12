@@ -23,6 +23,8 @@ let customWaves = [
   { shape: 'sawtooth', amp: 0.25 }
 ];
 
+let reverbMix = 0.5;
+let delayMix = 0.5;
 
 
 function symbolToShape(symbol) {
@@ -61,7 +63,7 @@ let currentPressedKey = null;
 
 
 for (let octave = 1; octave <= 7; octave++) {
-  ['C', 'E', 'G', 'A'].forEach(note => {
+  ['C','D', 'E', 'G', 'A'].forEach(note => {
     notesToLoad.push(note + octave);
   });
 }
@@ -149,8 +151,40 @@ function setup() {
 
   volLabel = createSpan('Vol');
   volLabel.parent(wrapper); 
-  volLabel.position(width - 180, height - 40);
+  volLabel.position(width - 180, height - 43);
   volLabel.style('color', 'rgb(0, 102, 204)');
+  
+
+  let reverbLabel = createSpan("Rvb");
+  reverbLabel.parent(wrapper);
+  reverbLabel.position(width - 160, height - 460);
+  reverbLabel.style('color', 'rgb(0, 102, 204)');
+
+  let reverbSlider = createSlider(0, 1, reverbMix, 0.01);
+  reverbSlider.parent(wrapper);
+  reverbSlider.position(width - 125, height - 457);
+  reverbSlider.size(110);
+  reverbSlider.input(() => {
+    reverbMix = reverbSlider.value();
+    reverbOn = reverbMix > 0;
+  });
+
+
+  let delayLabel = createSpan("Dly");
+  delayLabel.parent(wrapper);
+  delayLabel.position(width - 160, height - 435);
+  delayLabel.style('color', 'rgb(0, 102, 204)');
+
+  let delaySlider = createSlider(0, 0.8, delayMix, 0.01);
+  delaySlider.parent(wrapper);
+  delaySlider.position(width - 125, height - 432);
+  delaySlider.size(110);
+  delaySlider.input(() => {
+    delayMix = delaySlider.value();
+    delayOn = delayMix > 0;
+  });
+
+
 
   const defaultKeyMap = {
     '1': [1, 1], '2': [2, 1], '3': [3, 2], '4': [4, 3], '5': [5, 4],
@@ -173,13 +207,13 @@ function setup() {
 
   baseFreqLabel = createSpan("BaseFreq: ");
   baseFreqLabel.parent(wrapper); 
-  baseFreqLabel.position(660, 45);  
+  baseFreqLabel.position(width - 160, height - 489);  
   baseFreqLabel.style('color', 'rgb(0, 102, 204)');
 
   baseFreqInput = createInput("440");  
   baseFreqInput.parent(wrapper); 
-  baseFreqInput.position(745, 45); 
-  baseFreqInput.size(30);
+  baseFreqInput.position(width - 80, height - 486); 
+  baseFreqInput.size(60);
 
   baseFreqInput.input(() => {
     let val = parseFloat(baseFreqInput.value());
@@ -299,9 +333,9 @@ function mousePressed() {
 function drawWaveMode() {
   fill(0, 102, 204);
   textSize(16);
-  textAlign(RIGHT, TOP);
+  textAlign(CENTER, TOP);
   let modeName = presetNames[currentPreset];
-  text(`Now wave: ${modeName}`, width - 20, 20);
+  text(`Now wave: ${modeName}`, width / 2 , 20);
 }
 
 function keyPressed() {
@@ -367,8 +401,9 @@ function playOscillator(key, freq) {
         osc.amp(cw.amp);
       }
 
-      if (reverbOn) reverb.process(osc, 3, 2);
-      if (delayOn)  delay.process(osc, 0.2, 0.3, 2300);
+      if (reverbOn) reverb.process(osc, 3, reverbMix);
+      if (delayOn)  delay.process(osc, 0.2, delayMix, 2300);
+
 
       waveOscs.push(osc);
     }
@@ -393,8 +428,8 @@ function playOscillator(key, freq) {
     sound.rate(rate);
     sound.setVolume(baseVol * 5);
 
-    if (reverbOn) reverb.process(sound, 5, 3);
-    if (delayOn) delay.process(sound, 0.2, 0.3, 2300);
+    if (reverbOn) reverb.process(sound, 3, reverbMix);
+    if (delayOn)  delay.process(sound, 0.2, delayMix, 2300);
 
     sound.play();
     sound.setVolume(baseVol * 3, 0);
@@ -420,8 +455,8 @@ function playOscillator(key, freq) {
       osc.amp(0.3);
     }
 
-    if (reverbOn) reverb.process(osc, 3, 2);
-    if (delayOn)  delay.process(osc, 0.2, 0.3, 2300);
+    if (reverbOn) reverb.process(osc, 3, reverbMix);
+    if (delayOn)  delay.process(osc, 0.2, delayMix, 2300);
 
     oscs[key] = osc;
   }
@@ -765,6 +800,7 @@ let isRecording = false;
 //let recordStartTime = 0;
 let recordedEvents = [];
 
+let panelWidth = 750;
 
 function setupSequencePanel(wrapper) {
   let toggleSeqBtn = createButton('Sequence');
@@ -775,14 +811,16 @@ function setupSequencePanel(wrapper) {
     sequencePanel.style('display', sequencePanelVisible ? 'block' : 'none');
   });
 
-  sequencePanel = createDiv();
-  sequencePanel.parent(wrapper);
-  sequencePanel.position(0, height + 10);
-  sequencePanel.size(780, 180);
+sequencePanel = createDiv();
+sequencePanel.parent(wrapper);
+sequencePanel.size(panelWidth, 180);
+sequencePanel.position((width - panelWidth) / 2 - 15, height + 10);
   sequencePanel.style('padding', '10px');
   sequencePanel.style('border', '1px solid #999');
   sequencePanel.style('background', '#fff');
   sequencePanel.style('display', 'none');
+  
+  
 
   let controlRow = createDiv();
   controlRow.parent(sequencePanel);
@@ -899,7 +937,9 @@ bpmLabel.parent(controlRow);
 
   sequenceInput = createElement('textarea');
   sequenceInput.parent(sequencePanel);
-  sequenceInput.size(800 - 26, 120);
+  sequenceInput.style('width', '100%');
+sequenceInput.style('box-sizing', 'border-box');
+sequenceInput.style('height', '120px');
   sequenceInput.value("100ms, prefreq=440\n800ms, 3:4, 1000ms\n1700ms, 6:5, 2500ms\n5拍, 5:4, 2500ms");
   sequenceInput.style('margin-top', '0px');
   
@@ -1002,4 +1042,3 @@ function updateSequence() {
     }
   }
 }
-
