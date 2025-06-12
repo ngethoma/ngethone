@@ -271,6 +271,8 @@ keyMapPanel.style('display', 'none');
   
   setupSequencePanel(wrapper);
   
+  canvas.mousePressed(handleCanvasClick);
+  
 }
 
 
@@ -312,6 +314,27 @@ function draw() {
   textSize(16);
   textAlign(LEFT, TOP);
   text("◀", arrowX, arrowY);
+  arrowX = 10;
+  arrowY = height - 30;
+  arrowW = textWidth("◀") + 10;
+  arrowH = textAscent() + textDescent() + 2;
+  
+    if (
+    mouseX >= arrowX && mouseX <= arrowX + arrowW &&
+    mouseY >= arrowY && mouseY <= arrowY + arrowH
+  ) {
+    hoveringArrow = true;
+    cursor(HAND);
+  } else {
+    hoveringArrow = false;
+    cursor(ARROW);
+  }
+    noStroke();
+  fill(hoveringArrow ? '#dedee0' : '#FFFFFF');
+  rect(arrowX, arrowY, arrowW, arrowH, 4);
+
+  fill(0, 102, 204);
+  text("◀", arrowX + 4, arrowY + 4);
   
   if (!sequencePaused && (sequenceActive || isRecording)) {
   sequenceCurrentTime = millis() - sequenceStartTime;
@@ -321,12 +344,15 @@ sequenceTimeInput.value((sequenceCurrentTime / 1000).toFixed(2));
   updateSequence();
 }
 
-function mousePressed() {
+
+
+function handleCanvasClick() {
   if (
-    mouseX +5 >= arrowX && mouseX <= arrowX + arrowW +5 &&
-    mouseY +5 >= arrowY && mouseY <= arrowY + arrowH +5
+    mouseX >= arrowX && mouseX <= arrowX + arrowW &&
+    mouseY >= arrowY && mouseY <= arrowY + arrowH
   ) {
-    window.open('http://ngethoma.com/notion', '_blank');
+    //console.log("hoge");
+    window.open('http://ngethoma.com/events', '_blank');
   }
 }
 
