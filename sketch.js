@@ -272,6 +272,11 @@ keyMapPanel.style('display', 'none');
   setupSequencePanel(wrapper);
   
   canvas.mousePressed(handleCanvasClick);
+
+  let link = createA('https://note.com/ngethoma/n/nfd92ae15951f', 'How to use', '_blank');
+  link.position(width - 20, height / 2 - 90);
+  link.style('font-size', '18px');
+  link.style('color', '#111111');
   
 }
 
