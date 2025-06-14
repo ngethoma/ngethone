@@ -273,11 +273,12 @@ keyMapPanel.style('display', 'none');
   
   canvas.mousePressed(handleCanvasClick);
 
-  let link = createA('https://note.com/ngethoma/n/nfd92ae15951f', 'How to use', '_blank');
-  link.position(width - 20, height / 2 - 90);
+  let link = createA('https://note.com/ngethoma/n/nfd92ae15951f', 'How To Use', '_blank');
+  link.position(width - 100, height / 2 - 280);
   link.style('font-size', '18px');
   link.style('color', '#111111');
-  
+  link.parent(wrapper);
+  link.addClass('custom-link');
 }
 
 
